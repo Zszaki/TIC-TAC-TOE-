@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tic Tac Toe Ultimate</title>
+
+<style>
+*{font-family:Poppins,sans-serif;box-sizing:border-box}
+body{
+margin:0;background:#0f1220;color:white;
+display:flex;justify-content:center;align-items:center;height:100vh;
+}
+
+.app{
+width:380px;background:#1c1f3a;
+border-radius:16px;padding:15px;
+box-shadow:0 0 40px rgba(0,0,0,.6);
+text-align:center;
+}
+
+.hidden{display:none}
+
+button,select{
+width:100%;padding:10px;margin:6px 0;
+border:none;border-radius:10px;
+font-weight:bold;
+background:linear-gradient(135deg,#667eea,#764ba2);
+color:white;
+}
+
+.bar{
+height:10px;background:#333;border-radius:10px;overflow:hidden;
+}
+.bar div{
+height:100%;background:linear-gradient(90deg,#43e97b,#38f9d7);
+}
+
+.board{
+display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:10px 0;
+}
+.cell{
+height:90px;font-size:40px;
+display:flex;justify-content:center;align-items:center;
+border-radius:12px;
+background:linear-gradient(135deg,#89f7fe,#66a6ff);
+cursor:pointer;
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+<!-- LOBBY -->
+<div id="lobby">
+<h2>🎮 LOBBY</h2>
+<div>💰 Coin: <span id="coin"></span></div>
+<div>⭐ Rank: <span id="rank"></span></div>
+<div class="bar"><div id="xpBar"></div></div>
+
+<select id="botLevel">
+<option value="easy">🤖 Easy</option>
+<option value="amatir">🤖 Amatir</option>
+<option value="pro">🤖 Pro</option>
+<option value="hard">🤖 Hard</option>
+</select>
+
+<button onclick="startPVP()">👥 PVP (2 Player)</button>
+<button onclick="startBOT()">🤖 VS BOT</button>
+</div>
+
+<!-- GAME -->
+<div id="game" class="hidden">
+<h3 id="status">Giliran X</h3>
+<div class="board" id="board"></div>
+<button onclick="backLobby()">⬅ Lobby</button>
+</div>
+
+</div>
+
+<script>
+const lobby=document.getElementById("lobby");
+const game=document.getElementById("game");
+const board=document.getElementById("board");
+const statusText=document.getElementById("status");
+
+let data=JSON.parse(localStorage.getItem("save"))||{
+coin:50,xp:0,rank:"Bronze"
+};
+
+let player="X",cells=[],active=true,mode="PVP";
+
+// SAVE SYSTEM
+function save(){localStorage.setItem("save",JSON.stringify(data))}
+
+// RANK
+function calcRank(){
+if(data.xp>=1000) data.rank="Legendary";
+else if(data.xp>=600) data.rank="Platinum";
+else if(data.xp>=300) data.rank="Gold";
+else if(data.xp>=100) data.rank="Silver";
+else data.rank="Bronze";
+}
+
+// UI UPDATE
+function updateUI(){
+coin.textContent=data.coin;
+rank.textContent=data.rank;
+xpBar.style.width=(data.xp%100)+"%";
+}
+updateUI();
+
+// START PVP
+function startPVP(){
+mode="PVP";
+startGame();
+}
+
+// START BOT
+function startBOT(){
+mode="BOT";
+startGame();
+}
+
+// GAME START
+function startGame(){
+lobby.classList.add("hidden");
+game.classList.remove("hidden");
+board.innerHTML="";
+cells=[];
+player="X";
+active=true;
+statusText.textContent="Giliran X";
+
+for(let i=0;i<9;i++){
+let c=document.createElement("div");
+c.className="cell";
+c.onclick=()=>move(i);
+board.appendChild(c);
+cells.push(c);
+}
+}
+
+// MOVE PLAYER
+function move(i){
+if(!active||cells[i].textContent) return;
+cells[i].textContent=player;
+
+if(check(player)){
+statusText.textContent=player+" MENANG!";
+active=false;
+data.coin+=10;
+data.xp+=30;
+calcRank();save();updateUI();
+return;
+}
+
+if(draw()){
+statusText.textContent="SERI!";
+active=false;
+return;
+}
+
+player=player==="X"?"O":"X";
+statusText.textContent="Giliran "+player;
+
+if(mode==="BOT" && player==="O"){
+setTimeout(botMove,400);
+}
+}
+
+// BOT AI
+function botMove(){
+let level=document.getElementById("botLevel").value;
+let i;
+
+if(level==="easy") i=randomMove();
+else if(level==="amatir") i=Math.random()<0.5?randomMove():smartMove();
+else if(level==="pro") i=smartMove();
+else i=minimaxMove();
+
+cells[i].textContent="O";
+
+if(check("O")){
+statusText.textContent="🤖 BOT MENANG!";
+active=false;
+return;
+}
+
+player="X";
+statusText.textContent="Giliran X";
+}
+
+// RANDOM MOVE
+function randomMove(){
+let e=cells.map((c,i)=>c.textContent?null:i).filter(v=>v!==null);
+return e[Math.floor(Math.random()*e.length)];
+}
+
+// SMART MOVE BLOCK WIN
+function smartMove(){
+for(let p of ["O","X"]){
+for(let i=0;i<9;i++){
+if(!cells[i].textContent){
+cells[i].textContent=p;
+if(check(p)){cells[i].textContent="";return i;}
+cells[i].textContent="";
+}
+}
+}
+return randomMove();
+}
+
+// MINIMAX HARD
+function minimaxMove(){
+let best=-999,move;
+for(let i=0;i<9;i++){
+if(!cells[i].textContent){
+cells[i].textContent="O";
+let score=minimax(false);
+cells[i].textContent="";
+if(score>best){best=score;move=i;}
+}
+}
+return move;
+}
+
+function minimax(isMax){
+if(check("O")) return 10;
+if(check("X")) return -10;
+if(draw()) return 0;
+
+let best=isMax?-999:999;
+for(let i=0;i<9;i++){
+if(!cells[i].textContent){
+cells[i].textContent=isMax?"O":"X";
+let s=minimax(!isMax);
+cells[i].textContent="";
+best=isMax?Math.max(best,s):Math.min(best,s);
+}
+}
+return best;
+}
+
+// WIN CHECK
+function check(p){
+const w=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+return w.some(a=>a.every(i=>cells[i].textContent===p));
+}
+
+function draw(){return cells.every(c=>c.textContent);}
+
+// BACK
+function backLobby(){
+game.classList.add("hidden");
+lobby.classList.remove("hidden");
+}
+</script>
+
+</body>
+</html>
